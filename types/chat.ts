@@ -15,6 +15,12 @@ export interface ChatBody {
   temperature: number;
 }
 
+export interface WorkstreamChatBody {
+  fromPhone: string;
+  toPhone: string;
+  body: string;
+}
+
 export interface Conversation {
   id: string;
   name: string;
@@ -23,4 +29,6 @@ export interface Conversation {
   prompt: string;
   temperature: number;
   folderId: string | null;
+  fromPhone: string;
+  toPhone: string;
 }

@@ -20,7 +20,7 @@ import {
 } from '@/utils/app/conversation';
 import { throttle } from '@/utils/data/throttle';
 
-import { ChatBody, Conversation, Message } from '@/types/chat';
+import { ChatBody, WorkstreamChatBody, Conversation, Message } from '@/types/chat';
 import { Plugin } from '@/types/plugin';
 
 import HomeContext from '@/pages/api/home/home.context';
@@ -53,6 +53,8 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
       modelError,
       loading,
       prompts,
+      fromPhone,
+      toPhone,
     },
     handleUpdateConversation,
     dispatch: homeDispatch,
@@ -70,6 +72,15 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
 
   const handleSend = useCallback(
     async (message: Message, deleteCount = 0, plugin: Plugin | null = null) => {
+
+      if (!selectedConversation?.fromPhone || !selectedConversation?.toPhone) {
+        alert(
+          t('From phone number and to phone number should net be empty')
+        );
+        setShowSettings(true);
+        return;
+      }
+
       if (selectedConversation) {
         let updatedConversation: Conversation;
         if (deleteCount) {
@@ -93,13 +104,21 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
         });
         homeDispatch({ field: 'loading', value: true });
         homeDispatch({ field: 'messageIsStreaming', value: true });
-        const chatBody: ChatBody = {
-          model: updatedConversation.model,
-          messages: updatedConversation.messages,
-          key: apiKey,
-          prompt: updatedConversation.prompt,
-          temperature: updatedConversation.temperature,
-        };
+        // const chatBody: ChatBody = {
+        //   model: updatedConversation.model,
+        //   messages: updatedConversation.messages,
+        //   key: apiKey,
+        //   prompt: updatedConversation.prompt,
+        //   temperature: updatedConversation.temperature,
+        // };
+        // console.log(message);
+        // console.log(selectedConversation);
+        const chatBody: WorkstreamChatBody = {
+          fromPhone: selectedConversation.fromPhone,
+          toPhone: selectedConversation.toPhone,
+          body: message.content,
+        }
+        console.log(chatBody);
         const endpoint = getEndpoint(plugin);
         let body;
         if (!plugin) {
@@ -124,6 +143,9 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
           signal: controller.signal,
           body,
         });
+        console.log(response);
+        console.log(response.ok);
+        console.log(response.body);
         if (!response.ok) {
           homeDispatch({ field: 'loading', value: false });
           homeDispatch({ field: 'messageIsStreaming', value: false });
@@ -131,6 +153,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
           return;
         }
         const data = response.body;
+        console.log(data);
         if (!data) {
           homeDispatch({ field: 'loading', value: false });
           homeDispatch({ field: 'messageIsStreaming', value: false });
@@ -160,7 +183,11 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
             }
             const { value, done: doneReading } = await reader.read();
             done = doneReading;
-            const chunkValue = decoder.decode(value);
+            let chunkValue = decoder.decode(value);
+            if (chunkValue) {
+              const _data = JSON.parse(chunkValue);
+              chunkValue = _data.reply;
+            }
             text += chunkValue;
             if (isFirst) {
               isFirst = false;
@@ -248,6 +275,8 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
     [
       apiKey,
       conversations,
+      fromPhone,
+      toPhone,
       pluginKeys,
       selectedConversation,
       stopConversationRef,
@@ -412,27 +441,6 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
                   {models.length > 0 && (
                     <div className="flex h-full flex-col space-y-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-600">
                       <ModelSelect />
-
-                      <SystemPrompt
-                        conversation={selectedConversation}
-                        prompts={prompts}
-                        onChangePrompt={(prompt) =>
-                          handleUpdateConversation(selectedConversation, {
-                            key: 'prompt',
-                            value: prompt,
-                          })
-                        }
-                      />
-
-                      <TemperatureSlider
-                        label={t('Temperature')}
-                        onChangeTemperature={(temperature) =>
-                          handleUpdateConversation(selectedConversation, {
-                            key: 'temperature',
-                            value: temperature,
-                          })
-                        }
-                      />
                     </div>
                   )}
                 </div>
